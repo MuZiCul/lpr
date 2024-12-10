@@ -1,0 +1,10 @@
+license_plate_recognition/
+├── static/
+│   ├── css/
+│   ├── js/
+│   └── images/
+├── templates/
+├── uploads/
+├── processed/
+├── app.py
+└── requirements.txt 

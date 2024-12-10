@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>识别详情 - 车牌识别系统</title>
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <link rel="stylesheet" href="https://www.layuicdn.com/layui-v2.5.6/css/layui.css">
+    <style>
+        .image-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .process-step {
+            text-align: center;
+            margin: 10px;
+            width: calc(33.33% - 20px);  /* 每行显示3个 */
+            min-width: 300px;
+        }
+
+        .process-step img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .step-description {
+            margin: 10px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .success-result {
+            color: #009688;
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .error-result {
+            color: #FF5722;
+            font-size: 20px;
+            padding: 10px;
+            background-color: #FFF5F5;
+            border-radius: 4px;
+        }
+
+        .confidence-info {
+            margin-top: 10px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .confidence-high { color: #009688; }
+        .confidence-medium { color: #FFB800; }
+        .confidence-low { color: #FF5722; }
+
+        .step-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 4px;
+            text-align: left;
+        }
+
+        .step-result .success {
+            color: #009688;
+            padding: 5px 0;
+        }
+
+        .step-result .error {
+            color: #FF5722;
+            padding: 5px 0;
+        }
+
+        .step-result-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .result-section {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .result-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-left: 4px solid #009688;
+            padding-left: 10px;
+        }
+
+        .result-comparison {
+            background: #fff;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .match {
+            color: #009688;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .mismatch {
+            color: #FF5722;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        /* 进度条样式 */
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background-color: #e6e6e6;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            width: 0;
+            background-color: #009688;
+            transition: width 0.3s ease;
+        }
+
+        /* 处理步骤网格布局 */
+        #process-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+
+        .process-step {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .process-step:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .layui-card-header {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            padding: 15px 20px;
+            border-bottom: 2px solid #009688;
+            position: relative;
+            background: linear-gradient(to right, #f9f9f9, #fff);
+        }
+
+        .layui-card-header:after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100px;
+            height: 2px;
+            background: #009688;
+        }
+
+        .system-title {
+            display: inline-block;
+            position: relative;
+            padding-left: 15px;
+        }
+
+        .system-title:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: #009688;
+            border-radius: 2px;
+        }
+
+        /* 优化按钮过渡效果 */
+        .layui-btn {
+            transition: all 0.3s ease;
+        }
+
+        .layui-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 统一卡片样式 */
+        .layui-card {
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .layui-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .layui-card-body {
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="layui-container" style="margin-top: 20px;">
+    <div class="layui-row">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div class="system-title">识别详情</div>
+                    <div class="header-actions" style="float: right;">
+                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="window.location.href='/'">
+                            <i class="layui-icon layui-icon-home"></i> 返回主页
+                        </button>
+                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="window.location.href='/cache_list'">
+                            <i class="layui-icon layui-icon-return"></i> 返回列表
+                        </button>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <!-- 识别结果部分 -->
+                    <div id="result-container">
+                        <div class="layui-card">
+                            <div class="layui-card-body">
+                                <!-- 本地识别结果 -->
+                                <div class="result-section">
+                                    <h3>本地车牌检测：</h3>
+                                    <h2 class="success-result">车牌号码：{{ record.final_result or '无法识别' }}</h2>
+                                    <div class="confidence-info">
+                                        识别可信度：<span class="confidence-{{ 'high' if record.confidence >= 75 else 'medium' if record.confidence >= 50 else 'low' }}">{{ "%.2f"|format(record.confidence) }}%</span>
+                                    </div>
+                                </div>
+
+                                <!-- 百度API识别结果 -->
+                                <div class="result-section" style="margin-top: 20px;">
+                                    <h3>百度车牌检测：</h3>
+                                    {% if record.baidu_result and record.baidu_result.number %}
+                                        <h2 class="success-result">车牌号码：{{ record.baidu_result.number }}</h2>
+                                        <div class="confidence-info">
+                                            识别可信度：<span class="confidence-{{ 'high' if record.baidu_result.confidence >= 75 else 'medium' if record.baidu_result.confidence >= 50 else 'low' }}">{{ "%.2f"|format(record.baidu_result.confidence) }}%</span>
+                                        </div>
+                                    {% else %}
+                                        <h2 class="error-result">无法识别车牌</h2>
+                                    {% endif %}
+                                </div>
+
+                                <!-- 结果比对 -->
+                                <div class="result-comparison" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                                    <h3>结果比对：</h3>
+                                    <div id="comparison-result">
+                                        {% if record.final_result and record.baidu_result and record.baidu_result.number %}
+                                            {% if record.final_result == record.baidu_result.number %}
+                                                <div class="match">两种方法识别结果一致</div>
+                                            {% else %}
+                                                <div class="mismatch">两种方法识别结果不一致</div>
+                                                <div style="margin-top: 5px; font-size: 13px;">
+                                                    <div>本地识别：{{ record.final_result }}</div>
+                                                    <div>百度API：{{ record.baidu_result.number }}</div>
+                                                </div>
+                                            {% endif %}
+                                        {% else %}
+                                            <div class="mismatch">无法进行结果比对</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 处理步骤展示 -->
+                    <div class="image-container" id="process-container">
+                        {% for step in record.processed_images %}
+                            <div class="process-step">
+                                <div class="step-description">{{ step.type }}</div>
+                                <img src="{{ url_for('processed_file', filename=step.filename) }}">
+                                <div class="step-result">
+                                    <div class="step-result-title">识别结果：</div>
+                                    {% if record.recognition_results[loop.index0].number %}
+                                        <div class="success">{{ record.recognition_results[loop.index0].number }}</div>
+                                    {% else %}
+                                        <div class="error">识别失败</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.layuicdn.com/layui-v2.5.6/layui.js"></script>
+</body>
+</html> 

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>权重设置 - 车牌识别系统</title>
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <link rel="stylesheet" href="https://www.layuicdn.com/layui-v2.5.6/css/layui.css">
+    <style>
+        .layui-card-header {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            padding: 15px 20px;
+            border-bottom: 2px solid #009688;
+            position: relative;
+            background: linear-gradient(to right, #f9f9f9, #fff);
+        }
+
+        .layui-card-header:after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100px;
+            height: 2px;
+            background: #009688;
+        }
+
+        .system-title {
+            display: inline-block;
+            position: relative;
+            padding-left: 15px;
+        }
+
+        .system-title:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: #009688;
+            border-radius: 2px;
+        }
+
+        .weight-settings {
+            padding: 20px;
+        }
+
+        .weight-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            background: #fff;
+            transition: all 0.3s ease;
+        }
+
+        .weight-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .layui-form-label {
+            width: 180px !important;
+            padding: 9px 15px !important;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .layui-input-block {
+            margin-left: 180px !important;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+        }
+
+        .weight-input {
+            width: 80px !important;
+            display: inline-block !important;
+            text-align: center;
+            margin: 0 5px;
+        }
+
+        .weight-description {
+            color: #666;
+            font-size: 13px;
+            margin-left: 15px;
+            flex: 1;
+        }
+
+        .weight-range {
+            color: #FF5722;
+            font-size: 13px;
+            margin-left: 10px;
+        }
+
+        /* 优化按钮过渡效果 */
+        .layui-btn {
+            transition: all 0.3s ease;
+        }
+
+        .layui-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 添加加减按钮的样式 */
+        .weight-btn {
+            width: 32px !important;
+            height: 32px !important;
+            padding: 0 !important;
+            line-height: 30px !important;
+            text-align: center;
+            margin: 0 5px;
+            border-radius: 4px;
+        }
+
+        .weight-btn:hover {
+            color: #009688;
+            border-color: #009688;
+        }
+
+        .weight-btn .layui-icon {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* 优化按钮点击效果 */
+        .weight-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+<div class="layui-container" style="margin-top: 20px;">
+    <div class="layui-row">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div class="system-title">权重设置</div>
+                    <span style="color: #999; font-size: 14px; font-weight: normal; margin-left: 10px;">
+                        (所有权重值必须在0-1之间)
+                    </span>
+                    <div style="float: right;">
+                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="window.location.href='/'">
+                            <i class="layui-icon layui-icon-home"></i> 返回主页
+                        </button>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <div class="weight-settings layui-form">
+                        <div class="layui-form-item">
+                            <div id="weight-list">
+                                <!-- 权重列表将通过JavaScript动态加载 -->
+                            </div>
+                            <div style="text-align: center; margin-top: 30px;">
+                                <button type="button" class="layui-btn" onclick="saveWeights()">保存设置</button>
+                                <button type="button" class="layui-btn layui-btn-primary" onclick="window.location.href='/'">取消</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.layuicdn.com/layui-v2.5.6/layui.js"></script>
+<script>
+layui.use(['form'], function(){
+    var form = layui.form;
+    
+    // 加载权重设置
+    loadWeights();
+});
+
+// 加载权重设置
+async function loadWeights() {
+    try {
+        const response = await $.get('/get_weights');
+        const weights = response.weights;
+        
+        const html = weights.map(w => `
+            <div class="weight-item">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">${getMethodName(w.step)}权重</label>
+                    <div class="layui-input-block">
+                        <button type="button" class="layui-btn layui-btn-primary weight-btn" onclick="adjustWeight(${w.step}, -0.05)">
+                            <i class="layui-icon layui-icon-subtraction"></i>
+                        </button>
+                        <input type="text"
+                               class="layui-input weight-input"
+                               id="weight-${w.step}"
+                               value="${w.weight}"
+                               onchange="validateWeight(this)"
+                               placeholder="请输入0-1之间的数值">
+                        <button type="button" class="layui-btn layui-btn-primary weight-btn" onclick="adjustWeight(${w.step}, 0.05)">
+                            <i class="layui-icon layui-icon-addition"></i>
+                        </button>
+                        <div class="weight-description">${w.description}</div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        $('#weight-list').html(html);
+    } catch (error) {
+        layer.msg('加载权重设置失败，请重试');
+        console.error('加载权重设置失败:', error);
+    }
+}
+
+// 获取处理方法名称
+function getMethodName(step) {
+    const methodNames = {
+        1: "原始图片",
+        2: "颜色分析",
+        3: "灰度处理",
+        4: "直方图均衡化",
+        5: "高斯模糊",
+        6: "Sobel边缘检测",
+        7: "自适应阈值",
+        8: "对比度增强",
+        9: "锐化处理",
+        10: "形态学处理"
+    };
+    return methodNames[step] || `步骤${step}`;
+}
+
+// 验证权重值
+function validateWeight(input) {
+    const value = input.value;
+    if (!/^\d*\.?\d*$/.test(value)) {
+        layer.msg('请输入有效的数字');
+        input.value = '0.5';
+        return false;
+    }
+
+    const numValue = parseFloat(value);
+    if (isNaN(numValue) || numValue < 0 || numValue > 1) {
+        layer.msg('权重值必须在0-1之间');
+        input.value = '0.5';
+        return false;
+    }
+
+    input.value = numValue.toFixed(2);
+    return true;
+}
+
+// 保存权重设置
+async function saveWeights() {
+    try {
+        const weights = [];
+        let hasError = false;
+
+        $('.weight-item').each(function() {
+            const input = $(this).find('.weight-input');
+            const step = parseInt(input.attr('id').replace('weight-', ''));
+            const weight = parseFloat(input.val());
+            const description = $(this).find('.weight-description').text();
+
+            if (!validateWeight(input[0])) {
+                hasError = true;
+                return false;
+            }
+
+            weights.push({
+                step: step,
+                weight: weight,
+                description: description
+            });
+        });
+
+        if (hasError) {
+            return;
+        }
+
+        const loadingIndex = layer.load(1);
+        const response = await $.ajax({
+            url: '/update_weights',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ weights: weights })
+        });
+
+        layer.close(loadingIndex);
+
+        if (response.error) {
+            layer.msg(response.error);
+        } else {
+            layer.msg('权重设置已保存', {
+                icon: 1,
+                time: 2000,
+                end: function() {
+                    window.location.href = '/';
+                }
+            });
+        }
+    } catch (error) {
+        layer.msg('保存设置失败，请重试');
+        console.error('保存设置失败:', error);
+    }
+}
+
+// 添加调整权重的函数
+function adjustWeight(step, delta) {
+    const input = $(`#weight-${step}`);
+    let value = parseFloat(input.val()) || 0;
+    value = Math.max(0, Math.min(1, value + delta));  // 确保值在0-1之间
+    input.val(value.toFixed(2));  // 保持两位小数
+    validateWeight(input[0]);
+}
+</script>
+</body>
+</html> 

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>缓存管理 - 车牌识别系统</title>
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <link rel="stylesheet" href="https://www.layuicdn.com/layui-v2.5.6/css/layui.css">
+    <style>
+        .header-actions {
+            float: right;
+        }
+        
+        .cache-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+        }
+        
+        .cache-item img {
+            max-width: 300px;
+            margin: 10px 0;
+        }
+        
+        .cache-info {
+            margin: 10px 0;
+        }
+        
+        .cache-actions {
+            margin-top: 10px;
+        }
+        
+        .no-cache {
+            text-align: center;
+            padding: 50px;
+            color: #999;
+        }
+        
+        /* 设置菜单按钮样式 */
+        .layui-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .layui-dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+            border: 1px solid #e6e6e6;
+            border-radius: 2px;
+            width: 140px;  /* 统一宽度 */
+            z-index: 100;
+            margin-top: 2px;
+        }
+
+        .layui-dropdown-menu li {
+            padding: 10px 15px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all .3s;
+            font-size: 14px;
+            line-height: 24px;
+            display: flex;
+            align-items: center;
+        }
+
+        .layui-dropdown-menu li:hover {
+            background-color: #f2f2f2;
+        }
+
+        .layui-dropdown-menu li .layui-icon {
+            margin-right: 10px;
+            font-size: 16px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .layui-dropdown-menu.show {
+            display: block;
+        }
+
+        #settingsDropdown {
+            height: 32px;
+            line-height: 32px;
+            padding: 0 15px;
+            font-size: 14px;
+        }
+
+        #settingsDropdown .layui-icon {
+            margin-right: 5px;
+        }
+
+        #settingsDropdown .layui-icon-down {
+            margin-left: 5px;
+            margin-right: 0;
+            font-size: 12px;
+        }
+
+        .layui-layer-red .layui-layer-title {
+            background-color: #FF5722;
+            color: #fff;
+        }
+
+        #clear-all-btn {
+            display: none;  /* 默认隐藏，有缓存时才显示 */
+        }
+        
+        .cache-image {
+            margin: 15px 0;
+            text-align: center;
+        }
+        
+        .cache-image img {
+            max-width: 300px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .cache-item {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            background: #fff;
+            transition: all 0.3s ease;
+        }
+        
+        .cache-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .cache-content {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;  /* 左右内容的间距 */
+        }
+        
+        .cache-info {
+            font-size: 16px;
+            line-height: 30px;
+            flex: 1;  /* 占据剩余空间 */
+            min-width: 200px;  /* 最小宽度 */
+        }
+        
+        .cache-image {
+            flex: 0 0 auto;  /* 不伸缩，保持原有大小 */
+            margin: 0;  /* 移除原有的外边距 */
+        }
+        
+        .cache-image img {
+            max-width: 210px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .cache-item {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #e6e6e6;
+            border-radius: 4px;
+            background: #fff;
+            transition: all 0.3s ease;
+        }
+        
+        .cache-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .cache-actions {
+            margin-top: 15px;  /* 调整删除按钮的位置 */
+        }
+        
+        /* 在小屏幕上自动换行 */
+        @media screen and (max-width: 768px) {
+            .cache-content {
+                flex-direction: column;
+            }
+            
+            .cache-image {
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        .layui-card-header {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            padding: 15px 20px;
+            border-bottom: 2px solid #009688;
+            position: relative;
+            background: linear-gradient(to right, #f9f9f9, #fff);
+        }
+
+        .layui-card-header:after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100px;
+            height: 2px;
+            background: #009688;
+        }
+
+        .system-title {
+            display: inline-block;
+            position: relative;
+            padding-left: 15px;
+        }
+
+        .system-title:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: #009688;
+            border-radius: 2px;
+        }
+
+        /* 添加到现有样式中 */
+        /* 优化按钮过渡效果 */
+        .layui-btn {
+            transition: all 0.3s ease;
+        }
+
+        .layui-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 统一卡片样式 */
+        .layui-card {
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .layui-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .layui-card-body {
+            padding: 20px;
+        }
+
+        /* 优化缓存项的按钮样式 */
+        .cache-actions .layui-btn {
+            margin-right: 10px;
+        }
+
+        .cache-actions .layui-btn:last-child {
+            margin-right: 0;
+        }
+
+        /* 优化删除全部按钮的样式 */
+        #clear-all-btn {
+            transition: all 0.3s ease;
+        }
+
+        #clear-all-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(255,87,34,0.2);
+        }
+    </style>
+</head>
+<body>
+<div class="layui-container" style="margin-top: 20px;">
+    <div class="layui-row">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div class="system-title">缓存管理</div>
+                    <div class="header-actions">
+                        <button class="layui-btn layui-btn-danger layui-btn-sm" onclick="clearAllCache()" id="clear-all-btn" style="margin-right: 10px;">
+                            <i class="layui-icon layui-icon-delete"></i> 删除全部缓存
+                        </button>
+                        <button class="layui-btn layui-btn-primary layui-btn-sm" onclick="window.location.href='/'">
+                            <i class="layui-icon layui-icon-home"></i> 返回主页
+                        </button>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <div id="cache-list">
+                        <!-- 缓存列表将通过JavaScript动态加载 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.layuicdn.com/layui-v2.5.6/layui.js"></script>
+<script>
+layui.use(['layer'], function(){
+    var layer = layui.layer;
+    
+    // 加载缓存列表
+    loadCacheList();
+    
+    // 设置下拉菜单事件处理
+    $('#settingsDropdown').click(function(e) {
+        e.stopPropagation();
+        $('.layui-dropdown-menu').toggleClass('show');
+    });
+
+    // 点击下拉菜单项时不要立即关闭菜单
+    $('.layui-dropdown-menu').click(function(e) {
+        e.stopPropagation();
+    });
+    
+    // 点击页面其他地方时关闭下拉菜单
+    $(document).click(function() {
+        $('.layui-dropdown-menu').removeClass('show');
+    });
+});
+
+async function loadCacheList() {
+    try {
+        const response = await $.get('/get_cache_records');
+        const records = response.records;
+        
+        // 根据是否有记录控制删除全部按钮的显示
+        $('#clear-all-btn').toggle(records.length > 0);
+        
+        if (records.length === 0) {
+            $('#cache-list').html('<div class="no-cache">暂无缓存记录</div>');
+            return;
+        }
+        
+        const html = records.map(record => `
+            <div class="cache-item">
+                <div class="cache-content">
+                    <div class="cache-info">
+                        <div>本地识别结果：${record.final_result || '无法识别'}</div>
+                        <div>识别可信度：${record.confidence}%</div>
+                        <div>识别时间：${record.created_at}</div>
+                        <div>百度识别结果：${record.baidu_result ? record.baidu_result.number : '无法识别'}</div>
+                        <div class="cache-actions">
+                            <button class="layui-btn layui-btn-normal layui-btn-sm" 
+                                    onclick="window.location.href='/cache_detail/${record.image_hash}'">
+                                <i class="layui-icon layui-icon-search"></i> 查看详情
+                            </button>
+                            <button class="layui-btn layui-btn-danger layui-btn-sm" 
+                                    onclick="clearCache('${record.image_hash}')">
+                                <i class="layui-icon layui-icon-delete"></i> 删除缓存
+                            </button>
+                        </div>
+                    </div>
+                    ${record.original_image ? `
+                        <div class="cache-image">
+                            <img src="/processed/${record.original_image}" alt="原始图片">
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+        $('#cache-list').html(html);
+    } catch (error) {
+        layer.msg('加载缓存列表失败');
+        console.error('加载缓存列表失败:', error);
+    }
+}
+
+// 添加清除缓存的函数
+async function clearCache(imageHash) {
+    layer.confirm('确定要删除这条缓存记录吗？', {
+        btn: ['确定', '取消']
+    }, async function(index) {
+        layer.close(index);
+        try {
+            const response = await $.ajax({
+                url: '/clear_cache',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ image_hash: imageHash })
+            });
+            
+            if (response.error) {
+                layer.msg(response.error);
+            } else {
+                layer.msg('缓存已清除');
+                loadCacheList();  // 重新加载列表
+            }
+        } catch (error) {
+            layer.msg('清除缓存失败，请重试');
+        }
+    });
+}
+
+// 添加删除全部缓存的函数
+async function clearAllCache() {
+    layer.confirm('确定要删除所有缓存记录吗？此操作不可恢复！', {
+        btn: ['确定删除','取消'],
+        title: '警告',
+        skin: 'layui-layer-red'
+    }, async function(index){
+        layer.close(index);
+        const loadingIndex = layer.load(1, {
+            shade: [0.3, '#000']
+        });
+        
+        try {
+            const response = await $.ajax({
+                url: '/clear_all_cache',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({})
+            });
+            
+            layer.close(loadingIndex);
+            
+            if (response.error) {
+                layer.msg(response.error);
+            } else {
+                layer.msg('所有缓存已清除');
+                loadCacheList();  // 重新加载列表
+            }
+        } catch (error) {
+            layer.close(loadingIndex);
+            layer.msg('清除缓存失败，请重试');
+            console.error('清除缓存失败:', error);
+        }
+    });
+}
+</script>
+</body>
+</html> 

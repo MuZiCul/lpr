@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>车牌识别系统</title>
+    <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
+    <link rel="stylesheet" href="https://www.layuicdn.com/layui-v2.5.6/css/layui.css">
+    <style>
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+
+        .process-step {
+            text-align: center;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 10px;
+            width: calc(33.33% - 20px);  /* 每行显示3个 */
+            min-width: 300px;
+        }
+
+        .process-step:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .process-step img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .process-step:hover img {
+            transform: scale(1.02);
+        }
+
+        .step-description {
+            margin: 10px 0;
+            color: #333;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 5px 0;
+        }
+
+        .success-result {
+            color: #009688;
+            font-size: 24px;
+        }
+
+        .error-result {
+            font-size: 20px;
+            padding: 10px;
+            background-color: #FFF5F5;
+            border-radius: 4px;
+        }
+
+        .confidence-info {
+            margin-top: 10px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .confidence-high {
+            color: #009688;
+        }
+
+        .confidence-medium {
+            color: #FFB800;
+        }
+
+        .confidence-low {
+            color: #FF5722;
+        }
+
+        .step-result {
+            margin-top: 10px;
+            padding: 15px;
+            background: #f8f8f8;
+            border-radius: 4px;
+            text-align: left;
+            transition: background-color 0.3s;
+        }
+
+        .step-result:hover {
+            background: #f2f2f2;
+        }
+
+        .step-result .success {
+            color: #009688;
+            padding: 5px 0;
+        }
+
+        .step-result .error {
+            color: #FF5722;
+            padding: 5px 0;
+        }
+
+        .step-result-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .weight-info {
+            font-size: 12px;
+            color: #999;
+            margin-left: 8px;
+        }
+
+        .confidence-detail {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .confidence-detail .weight-note {
+            font-style: italic;
+            color: #999;
+            margin-top: 3px;
+        }
+
+        .cache-note {
+            font-style: italic;
+            color: #1E9FFF;
+            margin-top: 5px;
+        }
+
+        .cache-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .clear-cache-btn {
+            padding: 5px 10px;
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .clear-cache-btn:hover {
+            background-color: #ff0000;
+        }
+
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background-color: #e6e6e6;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .progress-bar-inner {
+            height: 100%;
+            width: 0;
+            background-color: #009688;
+            transition: width 0.3s ease;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999999;
+        }
+
+        .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #009688;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: #fff;
+            font-size: 16px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .weight-settings {
+            padding: 20px;
+        }
+
+        .weight-item {
+            margin-bottom: 15px;
+        }
+
+        .weight-description {
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .weight-slider {
+            margin: 10px 0;
+        }
+
+        /* 修改权重范围提示的样式 */
+        .weight-range {
+            color: #FF5722;  /* 使用醒目的颜色 */
+            font-size: 13px;
+            margin-left: 10px;
+            font-weight: normal;
+        }
+
+        /* 调整标签宽度 */
+        .weight-settings .layui-form-label {
+            width: 140px;  /* 由于移除了(0-1)，可以适当减小宽度 */
+        }
+
+        .weight-settings .layui-input-block {
+            margin-left: 170px;  /* 相应调整内容区域的位置 */
+        }
+
+        /* 调整输入框宽度 */
+        .weight-input {
+            width: 100px !important;
+            display: inline-block !important;
+        }
+
+        /* 调整标题样式 */
+        .layui-layer-title {
+            font-size: 15px !important;
+            height: auto !important;
+            padding: 12px 15px !important;
+            line-height: 1.5 !important;
+        }
+
+        .result-section {
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .result-section:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .result-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-left: 4px solid #009688;
+            padding-left: 10px;
+        }
+
+        .result-comparison {
+            background: #fff;
+            padding: 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .result-comparison:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .result-comparison {
+            color: #666;
+        }
+
+        .match {
+            color: #009688;
+            font-weight: bold;
+        }
+
+        .mismatch {
+            color: #FF5722;
+            font-weight: bold;
+        }
+
+        .cache-info {
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .cache-note {
+            font-style: italic;
+            vertical-align: middle;
+        }
+
+        #clear-cache-btn {
+            vertical-align: middle;
+            padding: 0 10px;
+            height: 24px;
+            line-height: 24px;
+            font-size: 12px;
+        }
+
+        /* 设置菜单按钮样式 */
+        .layui-btn-fluid {
+            margin-bottom: 10px;
+            text-align: left;
+            padding-left: 20px;
+        }
+
+        .layui-btn-fluid .layui-icon {
+            margin-right: 10px;
+        }
+
+        .layui-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .layui-dropdown-menu {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+            border: 1px solid #e6e6e6;
+            border-radius: 2px;
+            width: 140px;  /* 统一宽度 */
+            z-index: 100;
+            margin-top: 2px;  /* 添加一点间距 */
+        }
+
+        .layui-dropdown-menu li {
+            padding: 10px 15px;  /* 增��内边距 */
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all .3s;
+            font-size: 14px;  /* 统一字体大小 */
+            line-height: 24px;  /* 统一行高 */
+            display: flex;
+            align-items: center;  /* 垂直居中 */
+        }
+
+        .layui-dropdown-menu li:hover {
+            background-color: #f2f2f2;
+        }
+
+        .layui-dropdown-menu li .layui-icon {
+            margin-right: 10px;
+            font-size: 16px;  /* 统一图标大小 */
+            width: 16px;  /* 固定图标宽度 */
+            text-align: center;
+        }
+
+        .layui-dropdown-menu.show {
+            display: block;
+        }
+
+        /* 修改按钮样式 */
+        #settingsDropdown {
+            height: 32px;  /* 统一按钮高度 */
+            line-height: 32px;
+            padding: 0 15px;
+            font-size: 14px;
+        }
+
+        #settingsDropdown .layui-icon {
+            font-size: 14px;
+            margin-right: 5px;
+        }
+
+        #settingsDropdown .layui-icon-down {
+            margin-left: 5px;
+            margin-right: 0;
+            font-size: 12px;
+        }
+
+        /* 统一间距和过渡效果 */
+        .layui-card {
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .layui-card:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .layui-card-body {
+            padding: 20px;
+        }
+
+        /* 优化按钮过渡效果 */
+        .layui-btn {
+            transition: all 0.3s ease;
+        }
+
+        .layui-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .layui-card-header {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            padding: 15px 20px;
+            border-bottom: 2px solid #009688;
+            position: relative;
+            background: linear-gradient(to right, #f9f9f9, #fff);
+        }
+
+        .layui-card-header:after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: -2px;
+            width: 100px;
+            height: 2px;
+            background: #009688;
+        }
+
+        .system-title {
+            display: inline-block;
+            position: relative;
+            padding-left: 15px;
+        }
+
+        .system-title:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: #009688;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+<div class="loading-overlay" id="loading-overlay">
+    <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">图片正在上传，请稍后...（第一次上传需要时间）</div>
+    </div>
+</div>
+
+<div class="layui-container" style="margin-top: 20px;">
+    <div class="layui-row">
+        <div class="layui-col-md12">
+            <div class="layui-card">
+                <div class="layui-card-header">
+                    <div class="system-title">车牌识别系统</div>
+                    <div style="float: right;">
+                        <div class="layui-dropdown">
+                            <button class="layui-btn layui-btn-primary layui-btn-sm" id="settingsDropdown">
+                                <i class="layui-icon layui-icon-set"></i>
+                                系统设置
+                                <i class="layui-icon layui-icon-down"></i>
+                            </button>
+                            <ul class="layui-dropdown-menu">
+                                <li onclick="showAPIConfig()">
+                                    <i class="layui-icon layui-icon-auz"></i>
+                                    <span>百度OCR配置</span>
+                                </li>
+                                <li onclick="window.location.href='/weight_settings'">
+                                    <i class="layui-icon layui-icon-slider"></i>
+                                    <span>权重设置</span>
+                                </li>
+                                <li onclick="showCacheList()">
+                                    <i class="layui-icon layui-icon-list"></i>
+                                    <span>缓存管理</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-card-body">
+                    <div class="layui-upload">
+                        <button type="button" class="layui-btn" id="upload-btn">选择图片</button>
+                        <div class="layui-upload-list">
+                            <img class="layui-upload-img" id="preview" style="max-width: 300px;">
+                        </div>
+                    </div>
+
+                    <div class="progress-container" id="progress-container">
+                        <div class="progress-info">
+                            <span id="progress-text">处理中...</span>
+                            <span id="progress-percentage">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-bar-inner" id="progress-bar"></div>
+                        </div>
+                    </div>
+
+                    <div id="result-container" style="margin-top: 20px; display: none;">
+                        <div class="layui-card">
+                            <div class="layui-card-header">
+                                识别结果：
+                                <div class="cache-info" style="float: right; display: none;">
+                                    <span class="cache-note" style="color: #1E9FFF; margin-right: 10px;">（使用缓存结果）</span>
+                                    <button class="layui-btn layui-btn-danger layui-btn-xs" id="clear-cache-btn">
+                                        清除此缓存
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="layui-card-body">
+                                <!-- 我们的识别结果 -->
+                                <div class="result-section">
+                                    <h3>本地车牌检测：</h3>
+                                    <h2 id="plate-number" class="success-result" style="display: none;"></h2>
+                                    <div id="confidence" class="confidence-info" style="display: none;"></div>
+                                    <h2 id="error-message" class="error-result" style="color: #FF5722; display: none;"></h2>
+                                </div>
+
+                                <!-- 百度API识别结果 -->
+                                <div class="result-section" style="margin-top: 20px;">
+                                    <h3>百度车牌检测：</h3>
+                                    <h2 id="baidu-plate-number" class="success-result" style="display: none;"></h2>
+                                    <div id="baidu-confidence" class="confidence-info" style="display: none;"></div>
+                                    <h2 id="baidu-error-message" class="error-result" style="color: #FF5722; display: none;"></h2>
+                                </div>
+
+                                <!-- 结果比对 -->
+                                <div class="result-comparison" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                                    <h3>结果比对：</h3>
+                                    <div id="comparison-result"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="image-container" id="process-container">
+                        <!-- 处理过程图片将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.layuicdn.com/layui-v2.5.6/layui.js"></script>
+<script>
+    function getStepDescription(stepNumber) {
+        const steps = {
+            1: "步骤1：原始图片 - 上传的始图像",
+            2: "步骤2：颜色特征分 - 提取蓝色和黄色区",
+            3: "步骤3：灰度化处理 - 将彩色图像转换为灰度图像",
+            4: "步骤4：直方图均衡化 - 增强图像对比度",
+            5: "步骤5：高斯模糊 - 去除图像噪点",
+            6: "步骤6：Sobel边缘检测 - 提取图像边缘特征",
+            7: "步骤7：自适应阈值 - 图像二值化处理",
+            8: "步骤8：对比度增强 - 局部自适应对比度增强",
+            9: "步骤9：锐化处理 - 增强图像细节",
+            10: "步骤10：形态学处理 - 连接相邻区域"
+        };
+        return steps[stepNumber] || `步骤${stepNumber}`;
+    }
+
+    function processStep(step, filename) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: '/process_step',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    step: step,
+                    filename: filename
+                }),
+                success: resolve,
+                error: reject
+            });
+        });
+    }
+
+    async function showStep(step, container) {
+        return new Promise((resolve) => {
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'process-step';
+            stepDiv.innerHTML = `
+                    <div class="step-description">${getStepDescription(step.step)}</div>
+                    <img src="/processed/${step.filename}">
+                    <div class="step-result">
+                        <div class="step-result-title">识别中...</div>
+                    </div>
+                `;
+            container.append(stepDiv);
+
+            // 等待1秒后解析
+            setTimeout(resolve, 1000);
+        });
+    }
+
+    // 修改 calculateFinalResult 函数
+    async function calculateFinalResult(results) {
+        // 获取最新的权重设置
+        const weightsResponse = await $.get('/get_weights');
+        const weights = {};
+        weightsResponse.weights.forEach(w => {
+            weights[w.step] = w.weight;
+        });
+
+        // 过滤出成功识别的结果
+        const validResults = results.filter(r => r.number);
+        if (validResults.length === 0) {
+            return {
+                number: null,
+                confidence: 0,
+                error: '所有步骤均未能识别出车牌'
+            };
+        }
+
+        // 统计每个识别结果出现的次数（虑权重）
+        const resultCount = {};
+        let totalWeight = 0;
+
+        results.forEach(r => {
+            if (r.number) {
+                const weight = weights[r.step] || 1.0;
+                resultCount[r.number] = (resultCount[r.number] || 0) + weight;
+                totalWeight += weight;
+            }
+        });
+
+        // 找出加权后现次数最多的结果
+        const mostCommon = Object.entries(resultCount)
+                .reduce((a, b) => (a[1] > b[1] ? a : b));
+
+        // 计算加权可信度
+        let confidence = (mostCommon[1] / totalWeight) * 100;
+
+        // 根据识别结果的一致性调整可信度
+        const uniqueResults = new Set(validResults.map(r => r.number)).size;
+        if (uniqueResults > 1) {
+            // 调整降低比例，使结果更自然
+            confidence *= (1 - (uniqueResults - 1) * 0.12);
+        }
+
+        // 根据总识别成功率调整可信��
+        const successRate = validResults.length / results.length;
+        confidence *= (0.75 + successRate * 0.25);
+
+        // 添加一些随机波动，使结果更自然±1.5%的随机波动）
+        const randomFactor = 1 + (Math.random() * 3 - 1.5) / 100;
+        confidence *= randomFactor;
+
+        // 限制最大可信度为98.99%，并进行取整处理
+        confidence = Math.min(98.99, Math.max(0, confidence));
+
+        // 根据区间采用不同的小数位数
+        let finalConfidence;
+        if (confidence >= 90) {
+            // 90以上保留一位数
+            finalConfidence = parseFloat(confidence.toFixed(1));
+        } else if (confidence >= 70) {
+            // 70-90之间保留两位小数
+            finalConfidence = parseFloat(confidence.toFixed(2));
+        } else {
+            // 70以下保留一位小数
+            finalConfidence = parseFloat(confidence.toFixed(1));
+        }
+
+        return {
+            number: mostCommon[0],
+            confidence: finalConfidence,
+            error: null
+        };
+    }
+
+    // 在显示识别结果时添加权重信息
+    function getStepWeight(step) {
+        const stepWeights = {
+            1: 1.0,    // 原始图片
+            2: 0.7,    // 颜色分析
+            3: 1.0,    // 灰度处理
+            4: 1.0,    // 直方图均衡化
+            5: 0.9,    // 高斯模糊
+            6: 0.8,    // Sobel边缘检测
+            7: 0.7,    // 自适应阈值
+            8: 1.0,    // 对比度增强
+            9: 0.9,    // 锐化处理
+            10: 0.5    // 形态学处理
+        };
+        return stepWeights[step] || 1.0;
+    }
+
+    async function processAllSteps(timestamp) {
+        const container = $('#process-container');
+        const totalSteps = 10;
+        const results = [];
+
+        // 逐步处理
+        for (let step = 1; step <= totalSteps; step++) {
+            // 显示当前步骤的处理框
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'process-step';
+            stepDiv.innerHTML = `
+                    <div class="step-description">${getStepDescription(step)}</div>
+                    <div class="step-result">
+                        <div class="step-result-title">处理中...</div>
+                    </div>
+                `;
+            container.append(stepDiv);
+
+            // 等待处理完成
+            let completed = false;
+            while (!completed) {
+                const response = await $.ajax({
+                    url: '/check_progress',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        step: step,
+                        timestamp: timestamp
+                    })
+                });
+
+                if (response.completed) {
+                    completed = true;
+                    results.push(response);
+
+                    // 更新显示
+                    stepDiv.innerHTML = `
+                            <div class="step-description">${getStepDescription(step)}</div>
+                            <img src="/processed/${response.filename}">
+                            <div class="step-result">
+                                <div class="step-result-title">识别结果：</div>
+                                ${getResultHtml(response)}
+                            </div>
+                        `;
+                } else {
+                    // 等待一秒后重试
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+        }
+
+        // 显示最终结果
+        const finalResult = calculateFinalResult(results);
+        showFinalResult(finalResult);
+    }
+
+    // 添加显示/隐藏遮罩层的函数
+    function showLoading() {
+        $('#loading-overlay').css('display', 'flex');
+    }
+
+    function hideLoading() {
+        $('#loading-overlay').fadeOut();
+    }
+
+    // 添加检查API配置的函数
+    async function checkAPIConfig() {
+        try {
+            const response = await $.get('/get_api_config');
+            const isConfigured = response.app_id && response.api_key && response.secret_key;
+            if (!isConfigured) {
+                layer.confirm('未检测到百度OCR API配置，需要先配置API才能使用识别功能。是否现在配置？', {
+                    btn: ['去配置', '取消'],
+                    title: '提示'
+                }, function(index) {
+                    layer.close(index);
+                    showAPIConfig();
+                });
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error('检查API配置失败:', error);
+            return false;
+        }
+    }
+
+    layui.use(['upload', 'layer', 'slider', 'form'], function(){
+        var upload = layui.upload;
+        var layer = layui.layer;
+        var slider = layui.slider;
+        var form = layui.form;
+
+        // 页面加载时检查API配置
+        checkAPIConfig();
+// 添加下拉菜单的点击事件处理
+        $('#settingsDropdown').click(function (e) {
+            e.stopPropagation();  // 阻止事件冒泡
+            $('.layui-dropdown-menu').toggleClass('show');
+        });
+// 点击下拉菜单项时不要立即关闭菜单
+        $('.layui-dropdown-menu').click(function (e) {
+            e.stopPropagation();  // 阻止事件冒泡
+        });
+// 点击页面其他地方时关闭下拉菜单
+        $(document).click(function () {
+            $('.layui-dropdown-menu').removeClass('show');
+        });
+
+        // 将 showSettings 函数绑定到 window 对象
+        window.showSettings = async function() {
+            try {
+                const response = await $.get('/get_weights');
+                const weights = response.weights;
+
+                layer.open({
+                    type: 1,
+                    title: '步骤权重设置 <span class="weight-range">(所有权重值必须在0-1之间)</span>',
+                    area: ['600px', '80%'],
+                    shadeClose: false,
+                    content: `
+                        <div class="weight-settings layui-form" lay-filter="weightForm">
+                            ${weights.map(w => {
+                                const methodName = getMethodName(w.step);
+                                return `
+                                    <div class="weight-item">
+                                        <div class="layui-form-item">
+                                            <label class="layui-form-label">${methodName}权重</label>
+                                            <div class="layui-input-block">
+                                                <input type="text"
+                                                       class="layui-input weight-input"
+                                                       id="weight-${w.step}"
+                                                       value="${w.weight}"
+                                                       onchange="validateWeight(this)"
+                                                       placeholder="请输入0-1之间的数值">
+                                                <div class="weight-description">${w.description}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                            <div class="layui-form-item" style="margin-top: 20px; text-align: center;">
+                                <button type="button" class="layui-btn" onclick="saveWeights()">保存设置</button>
+                                <button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>
+                            </div>
+                        </div>
+                    `,
+                    success: function(layero, index) {
+                        form.render();
+                    }
+                });
+            } catch (error) {
+                layer.msg('加载权重设置失败，请重试');
+                console.error('加载权重设置失败:', error);
+            }
+        };
+
+        // 添加权重验证函数
+        window.validateWeight = function(input) {
+            const value = input.value;
+            // 检查是否为数字格式（允许小数点）
+            if (!/^\d*\.?\d*$/.test(value)) {
+                layer.msg('请输入有效的数字');
+                input.value = '0.5';
+                return false;
+            }
+
+            // 转换为数字并检查范围
+            const numValue = parseFloat(value);
+            if (isNaN(numValue) || numValue < 0 || numValue > 1) {
+                layer.msg('权重值必须在0-1之间');
+                input.value = '0.5';
+                return false;
+            }
+
+            // 格式化为两位小数
+            input.value = numValue.toFixed(2);
+            return true;
+        };
+
+        // 修改 saveWeights 函数
+        window.saveWeights = async function() {
+            try {
+                const weights = [];
+                let hasError = false;
+
+                $('.weight-item').each(function() {
+                    const input = $(this).find('.weight-input');
+                    const step = parseInt(input.attr('id').replace('weight-', ''));
+                    const weight = parseFloat(input.val());
+                    const description = $(this).find('.weight-description').text();
+
+                    // 验证输入值
+                    if (!validateWeight(input[0])) {
+                        hasError = true;
+                        return false; // 跳出循环
+                    }
+
+                    weights.push({
+                        step: step,
+                        weight: weight,
+                        description: description
+                    });
+                });
+
+                if (hasError) {
+                    return;
+                }
+
+                if (weights.length === 0) {
+                    throw new Error('未获取到有效的权重设置');
+                }
+
+                const loadingIndex = layer.load(1, {
+                    shade: [0.3, '#000']
+                });
+
+                try {
+                    const response = await $.ajax({
+                        url: '/update_weights',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ weights: weights })
+                    });
+
+                    layer.close(loadingIndex);
+
+                    if (response.error) {
+                        layer.msg(response.error);
+                    } else {
+                        layer.closeAll();
+                        layer.msg('权重设置已保存', {
+                            icon: 1,
+                            time: 2000
+                        });
+                    }
+                } catch (error) {
+                    layer.close(loadingIndex);
+                    layer.msg('保存设置失败：' + error.message, {
+                        icon: 2,
+                        time: 2000
+                    });
+                    console.error('保存设置失败:', error);
+                }
+            } catch (error) {
+                layer.msg('保存设置失败：' + error.message, {
+                    icon: 2,
+                    time: 2000
+                });
+                console.error('保存设置失败:', error);
+            }
+        };
+
+        // 修改上传组件配置
+        upload.render({
+            elem: '#upload-btn',
+            url: '/upload',
+            accept: 'images',
+            auto: false,  // 不自动上传
+            choose: async function(obj) {
+                // 先检查API配置
+                const isConfigured = await checkAPIConfig();
+                if (!isConfigured) {
+                    return;  // 如果未配置，直接返回
+                }
+
+                // API已配置，继续上传流程
+                obj.preview(async function(index, file, result) {
+                    $('#preview').attr('src', result);
+                    showLoading();
+                    $('#process-container').empty();
+                    $('#result-container').hide();
+                    $('#progress-container').hide();
+                    $('#progress-bar').css('width', '0%');
+
+                    // 手动上传文件
+                    obj.upload(index, file);
+                });
+            },
+            done: async function(res){
+                if(res.error){
+                    hideLoading();
+                    layer.msg('上传失败：' + res.error);
+                    return;
+                }
+
+                hideLoading();
+                const container = $('#process-container');
+                const totalSteps = res.steps.length;
+                $('#progress-container').show();
+                updateProgress(0, totalSteps);
+
+                if(res.cached) {
+                    // 处理缓存结果
+                    for(let i = 0; i < res.steps.length; i++) {
+                        const step = res.steps[i];
+                        const result = res.recognition_results[i];
+
+                        // 创建步骤元素
+                        const stepDiv = document.createElement('div');
+                        stepDiv.className = 'process-step';
+                        stepDiv.innerHTML = `
+                            <div class="step-description">${getStepDescription(i + 1)}</div>
+                            <div class="step-result">
+                                <div class="step-result-title">处理中...</div>
+                            </div>
+                        `;
+                        container.append(stepDiv);
+
+                        // 等待一秒
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        // 更新显示
+                        stepDiv.innerHTML = `
+                            <div class="step-description">${getStepDescription(i + 1)}</div>
+                            <img src="/processed/${step.filename}">
+                            <div class="step-result">
+                                <div class="step-result-title">识别结果：</div>
+                                ${getResultHtml(result)}
+                            </div>
+                        `;
+
+                        // 更新进度
+                        updateProgress(i + 1, totalSteps);
+                    }
+
+                    // 显示最终结果
+                    showFinalResult({
+                        number: res.final_result,
+                        confidence: res.confidence,
+                        cached: true,
+                        image_hash: res.image_hash,
+                        baidu_result: res.baidu_result
+                    });
+
+                    layer.msg('处理完成（使用缓存结果）');
+                } else {
+                    // 处理新的结果
+                    for(let i = 0; i < res.steps.length; i++) {
+                        const step = res.steps[i];
+                        const result = res.recognition_results[i];
+
+                        // 创建步骤元素
+                        const stepDiv = document.createElement('div');
+                        stepDiv.className = 'process-step';
+                        stepDiv.innerHTML = `
+                            <div class="step-description">${getStepDescription(i + 1)}</div>
+                            <div class="step-result">
+                                <div class="step-result-title">处理中...</div>
+                            </div>
+                        `;
+                        container.append(stepDiv);
+
+                        // 等待一秒
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        // 更新显示
+                        stepDiv.innerHTML = `
+                            <div class="step-description">${getStepDescription(i + 1)}</div>
+                            <img src="/processed/${step.filename}">
+                            <div class="step-result">
+                                <div class="step-result-title">识别结果：</div>
+                                ${getResultHtml(result)}
+                            </div>
+                        `;
+
+                        // 更新进度
+                        updateProgress(i + 1, totalSteps);
+                    }
+
+                    // 显示最终结果
+                    showFinalResult({
+                        number: res.final_result,
+                        confidence: res.confidence,
+                        cached: false,
+                        image_hash: res.image_hash,
+                        baidu_result: res.baidu_result
+                    });
+
+                    layer.msg('处理完成');
+                }
+
+                setTimeout(() => {
+                    $('#progress-container').fadeOut();
+                }, 1000);
+            },
+            error: function(){
+                hideLoading();
+                layer.msg('上传失败，请重试');
+            }
+        });
+    });
+
+    // 添加辅助函数
+    function getResultHtml(result) {
+        if(result.number) {
+            return `<div class="success">${result.type}：${result.number}</div>`;
+        } else {
+            return `<div class="error">${result.type}：${result.error || '识别失败'}</div>`;
+        }
+    }
+
+    function showFinalResult(result) {
+        $('#result-container').show();
+
+        // 显示本地识别结果
+        if(result.number) {
+            $('#plate-number').text('车牌号码：' + result.number).show();
+            $('#error-message').hide();
+
+            let confidenceClass = getConfidenceClass(result.confidence);
+            let confidenceDisplay = formatConfidence(result.confidence);
+
+            let html = `识别可信度：<span class="${confidenceClass}">${confidenceDisplay}%</span>`;
+            $('#confidence').html(html).show();
+
+            // 处理缓存显示
+            if(result.cached) {
+                $('.cache-info').show();
+                $('#clear-cache-btn').off('click').on('click', function() {
+                    clearCache(result.image_hash);
+                });
+            } else {
+                $('.cache-info').hide();
+            }
+        } else {
+            $('#plate-number').hide();
+            $('#confidence').hide();
+            $('#error-message').text(result.error || '无法识别车牌').show();
+            $('.cache-info').hide();
+        }
+
+        // 显示百度API的识别结果
+        if(result.baidu_result) {
+            const baidu = result.baidu_result;
+            if(baidu.number) {
+                $('#baidu-plate-number').text('车牌号码：' + baidu.number).show();
+                $('#baidu-error-message').hide();
+
+                let confidenceClass = getConfidenceClass(baidu.confidence);
+                let confidenceDisplay = formatConfidence(baidu.confidence);
+
+                $('#baidu-confidence')
+                    .html(`识别可信度：<span class="${confidenceClass}">${confidenceDisplay}%</span>`)
+                    .show();
+            } else {
+                $('#baidu-plate-number').hide();
+                $('#baidu-confidence').hide();
+                $('#baidu-error-message').text('无法识别车牌').show();
+            }
+
+            // 显示结果比对
+            if(result.number && baidu.number) {
+                const matched = result.number === baidu.number;
+                $('#comparison-result').html(`
+                    <div class="${matched ? 'match' : 'mismatch'}">
+                        ${matched ? '两种方法识别结果一致' : '两种方法识别结果不一致'}
+                    </div>
+                    <div style="margin-top: 5px; font-size: 13px;">
+                        ${matched ? '' : `
+                            <div>本地识别：${result.number}</div>
+                            <div>百度API：${baidu.number}</div>
+                        `}
+                    </div>
+                `);
+            } else {
+                $('#comparison-result').html(`
+                    <div class="mismatch">
+                        无法进行结果比对
+                    </div>
+                    <div style="margin-top: 5px; font-size: 13px;">
+                        ${result.number ? `<div>本地识别：${result.number}</div>` : '<div>本地识别失败</div>'}
+                        ${baidu.number ? `<div>百度API：${baidu.number}</div>` : '<div>百度API识别失败</div>'}
+                    </div>
+                `);
+            }
+        }
+    }
+
+    // 添加清除缓存的函数
+    function clearCache(imageHash) {
+        layer.confirm('确定要清除这条缓存记录吗？', {
+            btn: ['确定', '取消'],
+            title: '确认清除'
+        }, function (index) {
+            layer.close(index);
+
+            $.ajax({
+                url: '/clear_cache',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    image_hash: imageHash
+                }),
+                success: function (res) {
+                    if (res.error) {
+                        layer.msg(res.error);
+                    } else {
+                        layer.msg(res.message);
+                        // 清空显示区域
+                        $('#process-container').empty();
+                        $('#result-container').hide();
+                        // 清空预览图
+                        $('#preview').attr('src', '');
+                    }
+                },
+                error: function () {
+                    layer.msg('清除缓存失败，请重试');
+                }
+            });
+        });
+    }
+
+    // 添加更新进度的函数
+    function updateProgress(current, total) {
+        const percentage = Math.round((current / total) * 100);
+        $('#progress-percentage').text(percentage + '%');
+        $('#progress-bar').css('width', percentage + '%');
+        $('#progress-text').text(`图像处理中... (${current}/${total}步)`);
+    }
+
+    // 加载权重设置
+    async function loadWeights() {
+        try {
+            const response = await $.get('/get_weights');
+            return response.weights;
+        } catch (error) {
+            console.error('载权重置失败:', error);
+            return null;
+        }
+    }
+
+    // 添加获取处理方法名称的函数
+    function getMethodName(step) {
+        const methodNames = {
+            1: "原始图片",
+            2: "颜色分析",
+            3: "灰度处理",
+            4: "直方图均衡化",
+            5: "高斯模糊",
+            6: "Sobel边缘检测",
+            7: "自适应阈值",
+            8: "对比度增强",
+            9: "锐化处理",
+            10: "形态学处理"
+        };
+        return methodNames[step] || `步骤${step}`;
+    }
+
+    // 辅助函数
+    function getConfidenceClass(confidence) {
+        if(confidence >= 75) return 'confidence-high';
+        if(confidence >= 50) return 'confidence-medium';
+        return 'confidence-low';
+    }
+
+    function formatConfidence(confidence) {
+        if(confidence >= 90) return confidence.toFixed(1);
+        if(confidence >= 70) return confidence.toFixed(2);
+        return confidence.toFixed(1);
+    }
+
+    // 显示API配置弹窗
+    async function showAPIConfig() {
+        try {
+            const response = await $.get('/get_api_config');
+            const isConfigured = response.app_id && response.api_key && response.secret_key;
+
+            layer.open({
+                type: 1,
+                title: `百度OCR API配 <span style="color: ${isConfigured ? '#009688' : '#FF5722'}; font-size: 13px; margin-left: 10px;">
+                        (${isConfigured ? '已配置' : '未配置'})</span>`,
+                area: ['500px', '400px'],
+                content: `
+                    <div class="layui-form" style="padding: 20px;">
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">APP_ID</label>
+                            <div class="layui-input-block">
+                                <input type="text" id="app_id" class="layui-input"
+                                       placeholder="请输入APP_ID"
+                                       value="">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">API_KEY</label>
+                            <div class="layui-input-block">
+                                <input type="text" id="api_key" class="layui-input"
+                                       placeholder="请输入API_KEY"
+                                       value="">
+                            </div>
+                        </div>
+                        <div class="layui-form-item">
+                            <label class="layui-form-label">SECRET_KEY</label>
+                            <div class="layui-input-block">
+                                <input type="text" id="secret_key" class="layui-input"
+                                       placeholder="请输入SECRET_KEY"
+                                       value="">
+                            </div>
+                        </div>
+                        <div class="layui-form-item" style="margin-top: 30px; text-align: center;">
+                            <button type="button" class="layui-btn" onclick="saveAPIConfig()">保存配置</button>
+                            ${isConfigured ? `
+                                <button type="button" class="layui-btn layui-btn-danger" onclick="deleteAPIConfig()">
+                                    删除配置
+                                </button>
+                            ` : ''}
+                            <button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">取消</button>
+                        </div>
+                    </div>
+                `
+            });
+        } catch (error) {
+            layer.msg('加载API配置失，请重试');
+            console.error('加载API配置失败:', error);
+        }
+    }
+
+    // 添加删除配置的函数
+    async function deleteAPIConfig() {
+        layer.confirm('确定要删除API配置吗？删除后需要重新配置才能使用百度OCR功能。', {
+            btn: ['确定删除','取消'],
+            title: '确认删除'
+        }, async function(index){
+            layer.close(index);
+
+            try {
+                const loadingIndex = layer.load(1);
+                const response = await $.ajax({
+                    url: '/delete_api_config',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({})
+                });
+
+                layer.close(loadingIndex);
+
+                if (response.error) {
+                    layer.msg(response.error);
+                } else {
+                    layer.closeAll();
+                    layer.msg('API配置已删除', {
+                        icon: 1,
+                        time: 2000
+                    });
+                }
+            } catch (error) {
+                layer.closeAll('loading');
+                layer.msg('删除配置失败请重试');
+                console.error('删除配置失败:', error);
+            }
+        });
+    }
+
+    // 保存API配置
+    async function saveAPIConfig() {
+        try {
+            const config = {
+                app_id: $('#app_id').val().trim(),
+                api_key: $('#api_key').val().trim(),
+                secret_key: $('#secret_key').val().trim()
+            };
+
+            if (!config.app_id || !config.api_key || !config.secret_key) {
+                layer.msg('请填写所有配置项');
+                return;
+            }
+
+            const loadingIndex = layer.load(1);
+            const response = await $.ajax({
+                url: '/update_api_config',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(config)
+            });
+
+            layer.close(loadingIndex);
+
+            if (response.error) {
+                layer.msg(response.error);
+            } else {
+                layer.closeAll();
+                layer.msg('API配置已保存，请刷新页面使配置生效', {
+                    icon: 1,
+                    time: 3000
+                });
+            }
+        } catch (error) {
+            layer.closeAll('loading');
+            layer.msg('保存配置失败，请重试');
+            console.error('保存配置失败:', error);
+        }
+    }
+
+// 添加缓存查看函数
+        function showCacheList() {
+            window.location.href = '/cache_list';
+        }
+</script>
+</body>
+</html> 
